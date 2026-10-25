@@ -1,0 +1,2 @@
+-- Schema is managed by the explicit SQL scripts in database/migrations/.
+-- This legacy initialization placeholder is intentionally not mounted by Compose.
