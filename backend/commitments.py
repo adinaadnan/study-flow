@@ -27,6 +27,8 @@ _TIME_PATTERN = re.compile(r"^\d{2}:\d{2}$")
 
 @commitments_blueprint.before_request
 def require_login():
+    if request.method == "OPTIONS":
+        return None
     if session.get("user_id") is None:
         return jsonify({"error": "Authentication required."}), 401
     return None

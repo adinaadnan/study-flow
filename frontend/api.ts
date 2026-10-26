@@ -5,6 +5,8 @@ import type {
   User,
 } from "./types";
 
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/+$/, "");
+
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -21,7 +23,7 @@ async function request<T>(
 ): Promise<T> {
   let response: Response;
   try {
-    response = await fetch(path, {
+    response = await fetch(`${API_BASE_URL}${path}`, {
       ...options,
       credentials: "include",
       headers: {

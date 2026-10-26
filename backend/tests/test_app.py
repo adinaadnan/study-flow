@@ -124,6 +124,143 @@ def test_missing_secret_key_is_rejected(monkeypatch):
         create_app()
 
 
+def test_cookie_samesite_none_requires_secure_cookie(monkeypatch):
+    monkeypatch.setenv("SESSION_COOKIE_SAMESITE", "None")
+    monkeypatch.setenv("SESSION_COOKIE_SECURE", "false")
+
+    with pytest.raises(RuntimeError, match="SESSION_COOKIE_SECURE must be true"):
+        create_app({"SECRET_KEY": "test-only-secret"})
+
+
+def test_cors_allows_only_configured_origin_and_credentials():
+    app = create_app(
+        {
+            "TESTING": True,
+            "SECRET_KEY": "test-only-secret",
+            "FRONTEND_ORIGIN": "https://planner.example.com",
+        }
+    )
+    client = app.test_client()
+
+    allowed = client.get(
+        "/health", headers={"Origin": "https://planner.example.com"}
+    )
+    denied = client.get("/health", headers={"Origin": "https://other.example.com"})
+
+    assert allowed.headers["Access-Control-Allow-Origin"] == (
+        "https://planner.example.com"
+    )
+    assert allowed.headers["Access-Control-Allow-Credentials"] == "true"
+    assert "Origin" in allowed.headers["Vary"]
+    assert "Access-Control-Allow-Origin" not in denied.headers
+
+
+def test_cors_preflight_allows_credentials_and_requested_api_headers():
+    app = create_app(
+        {
+            "TESTING": True,
+            "SECRET_KEY": "test-only-secret",
+            "FRONTEND_ORIGIN": "https://planner.example.com",
+        }
+    )
+    client = app.test_client()
+
+    response = client.options(
+        "/api/auth/login",
+        headers={
+            "Origin": "https://planner.example.com",
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "content-type",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.headers["Access-Control-Allow-Origin"] == (
+        "https://planner.example.com"
+    )
+    assert response.headers["Access-Control-Allow-Credentials"] == "true"
+    assert "POST" in response.headers["Access-Control-Allow-Methods"]
+    assert response.headers["Access-Control-Allow-Headers"] == "Content-Type"
+
+
+def test_commitment_preflight_does_not_require_session_cookie():
+    app = create_app(
+        {
+            "TESTING": True,
+            "SECRET_KEY": "test-only-secret",
+            "FRONTEND_ORIGIN": "https://planner.example.com",
+        }
+    )
+
+    response = app.test_client().options(
+        "/api/commitments/31",
+        headers={
+            "Origin": "https://planner.example.com",
+            "Access-Control-Request-Method": "PATCH",
+            "Access-Control-Request-Headers": "content-type",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.headers["Access-Control-Allow-Origin"] == (
+        "https://planner.example.com"
+    )
+    assert "PATCH" in response.headers["Access-Control-Allow-Methods"]
+
+
+def test_login_uses_cross_site_secure_cookie_when_configured():
+    app = create_app(
+        {
+            "TESTING": True,
+            "SECRET_KEY": "test-only-secret",
+            "SESSION_COOKIE_SAMESITE": "None",
+            "SESSION_COOKIE_SECURE": True,
+            "FRONTEND_ORIGIN": "https://planner.example.com",
+        }
+    )
+    with patch(
+        "auth.store.get_user_by_email",
+        return_value={**USER, "password_hash": PASSWORD_HASH},
+    ):
+        response = app.test_client().post(
+            "/api/auth/login",
+            json={"email": USER["email"], "password": "studentplanner123"},
+            headers={"Origin": "https://planner.example.com"},
+        )
+
+    assert response.status_code == 200
+    cookie = response.headers["Set-Cookie"]
+    assert "HttpOnly" in cookie
+    assert "SameSite=None" in cookie
+    assert "Secure" in cookie
+
+
+def test_configured_cors_origin_is_required_for_api_mutations():
+    app = create_app(
+        {
+            "TESTING": True,
+            "SECRET_KEY": "test-only-secret",
+            "FRONTEND_ORIGIN": "https://planner.example.com",
+        }
+    )
+
+    response = app.test_client().post("/api/auth/logout")
+
+    assert response.status_code == 403
+    assert response.get_json() == {"error": "Request origin is not allowed."}
+
+
+def test_wildcard_cors_origin_is_rejected():
+    with pytest.raises(RuntimeError, match="FRONTEND_ORIGIN cannot be a wildcard"):
+        create_app(
+            {
+                "TESTING": True,
+                "SECRET_KEY": "test-only-secret",
+                "FRONTEND_ORIGIN": "*",
+            }
+        )
+
+
 def test_seed_command_is_registered(client, monkeypatch):
     monkeypatch.setattr("app.seed_demo_users", lambda: 2)
 

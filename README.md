@@ -1,35 +1,56 @@
 # StudyFlow
 
-A personal commitments planner built with React, TypeScript, Flask, and PostgreSQL.
+StudyFlow is a personal commitments planner built to help users organize assignments, work, events, and personal tasks in one place.
 
 ## Features
+
 - Login with demo accounts
-- Create, edit, and delete commitments
+- Add, edit, and delete commitments
 - Mark commitments as complete
-- Filter by upcoming and completed items
-- Keep each user's commitments private
+- Organize commitments by date and type
+- Optional start time, end time, and description
+- User-specific data protected by backend authentication
 
 ## Tech Stack
-- Frontend: React, TypeScript, Vite
-- Backend: Python, Flask
-- Database: PostgreSQL
-- Local development: Docker Compose
+
+- **Frontend:** React, TypeScript, Vite
+- **Backend:** Python, Flask
+- **Database:** PostgreSQL
+- **Development:** Docker Compose
 
 ## Run Locally
-1. Create a `.env` file with the required `SECRET_KEY`.
-2. Start the services:
+
+1. Make sure Docker Desktop is running.
+2. From the project root, run:
 
    ```bash
    docker compose up --build -d
    ```
 
-3. Apply the database migration and seed the demo accounts if setting up a fresh database.
-4. Open http://localhost:5173.
+3. Apply the database migration:
+
+   ```bash
+   docker compose exec db psql -U studyflow -d studyflow -v ON_ERROR_STOP=1 -f /migrations/001_initial_schema.sql
+   ```
+
+4. Create the demo accounts:
+
+   ```bash
+   docker compose exec backend python seed.py
+   ```
+
+5. Open **http://localhost:5173** in your browser.
 
 ## Demo Accounts
-Both accounts use the password `studentplanner123`.
 
-- `adina@test.com`
-- `sarah@test.com`
+For local development only:
 
-**Note:** Demo credentials are for local development only.
+| Email | Password |
+|---|---|
+| adina@test.com | studentplanner123 |
+| sarah@test.com | studentplanner123 |
+
+## Deployment
+
+StudyFlow is configured for deployment using Render. See the deployment environment variables and database migration steps before deploying.
+
